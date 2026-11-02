@@ -30,8 +30,13 @@ import type {
   HealthStatus,
   ListRecentPaymentsParams,
   ListStudentsParams,
+  MpesaCallbackInput,
+  MpesaConfig,
+  MpesaPaymentAttempt,
+  MpesaPaymentInput,
   Payment,
   PaymentInput,
+  ReceiveMpesaCallback200,
   Student,
   StudentInput
 } from './api.schemas';
@@ -651,6 +656,488 @@ export const useRecordStudentPayment = <TError = ErrorType<ApiError>,
         TContext
       > => {
       return useMutation(getRecordStudentPaymentMutationOptions(options), queryClient);
+    }
+
+export const getListStudentMpesaPaymentsUrl = (studentId: number,) => {
+
+
+
+
+  return `/api/students/${studentId}/mpesa-payments`
+}
+
+/**
+ * @summary List M-Pesa payment requests for a student
+ */
+export const listStudentMpesaPayments = async (studentId: number, options?: Parameters<typeof customFetch>[1]): Promise<MpesaPaymentAttempt[]> => {
+
+  return customFetch<MpesaPaymentAttempt[]>(getListStudentMpesaPaymentsUrl(studentId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getListStudentMpesaPaymentsQueryKey = (studentId: number,) => {
+    return [
+    `/api/students/${studentId}/mpesa-payments`
+    ] as const;
+    }
+
+
+export const getListStudentMpesaPaymentsQueryOptions = <TData = Awaited<ReturnType<typeof listStudentMpesaPayments>>, TError = ErrorType<ApiError>>(studentId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStudentMpesaPayments>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getListStudentMpesaPaymentsQueryKey(studentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof listStudentMpesaPayments>>> = ({ signal }) => listStudentMpesaPayments(studentId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: studentId !== null && studentId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof listStudentMpesaPayments>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type ListStudentMpesaPaymentsQueryResult = NonNullable<Awaited<ReturnType<typeof listStudentMpesaPayments>>>
+export type ListStudentMpesaPaymentsQueryError = ErrorType<ApiError>
+
+
+export function useListStudentMpesaPayments<TData = Awaited<ReturnType<typeof listStudentMpesaPayments>>, TError = ErrorType<ApiError>>(
+ studentId: number, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStudentMpesaPayments>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listStudentMpesaPayments>>,
+          TError,
+          Awaited<ReturnType<typeof listStudentMpesaPayments>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListStudentMpesaPayments<TData = Awaited<ReturnType<typeof listStudentMpesaPayments>>, TError = ErrorType<ApiError>>(
+ studentId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStudentMpesaPayments>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof listStudentMpesaPayments>>,
+          TError,
+          Awaited<ReturnType<typeof listStudentMpesaPayments>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useListStudentMpesaPayments<TData = Awaited<ReturnType<typeof listStudentMpesaPayments>>, TError = ErrorType<ApiError>>(
+ studentId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStudentMpesaPayments>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List M-Pesa payment requests for a student
+ */
+
+export function useListStudentMpesaPayments<TData = Awaited<ReturnType<typeof listStudentMpesaPayments>>, TError = ErrorType<ApiError>>(
+ studentId: number, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof listStudentMpesaPayments>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getListStudentMpesaPaymentsQueryOptions(studentId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getStartMpesaPaymentUrl = (studentId: number,) => {
+
+
+
+
+  return `/api/students/${studentId}/mpesa-payments`
+}
+
+/**
+ * Starts a sandbox payment prompt. It does not update the fee balance until Safaricom confirms success.
+ * @summary Start an M-Pesa STK Push payment request
+ */
+export const startMpesaPayment = async (studentId: number,
+    mpesaPaymentInput: MpesaPaymentInput, options?: Parameters<typeof customFetch>[1]): Promise<MpesaPaymentAttempt> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<MpesaPaymentAttempt>(getStartMpesaPaymentUrl(studentId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(mpesaPaymentInput)
+  }
+);}
+
+
+
+
+
+export const getStartMpesaPaymentMutationKey = () => ['startMpesaPayment'] as const;
+
+export const getStartMpesaPaymentMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startMpesaPayment>>, TError,StartMpesaPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startMpesaPayment>>, TError,StartMpesaPaymentMutationVariables, TContext> => {
+
+const mutationKey = getStartMpesaPaymentMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startMpesaPayment>>, StartMpesaPaymentMutationVariables> = (props) => {
+          const {studentId,data} = props ?? {};
+
+          return  startMpesaPayment(studentId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartMpesaPaymentMutationResult = NonNullable<Awaited<ReturnType<typeof startMpesaPayment>>>
+    export type StartMpesaPaymentMutationBody = BodyType<MpesaPaymentInput>
+    export type StartMpesaPaymentMutationError = ErrorType<ApiError>
+    export type StartMpesaPaymentMutationVariables = {studentId: number;data: BodyType<MpesaPaymentInput>}
+
+    /**
+ * @summary Start an M-Pesa STK Push payment request
+ */
+export const useStartMpesaPayment = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startMpesaPayment>>, TError,StartMpesaPaymentMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof startMpesaPayment>>,
+        TError,
+        StartMpesaPaymentMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStartMpesaPaymentMutationOptions(options), queryClient);
+    }
+
+export const getGetMpesaPaymentStatusUrl = (paymentId: string,) => {
+
+
+
+
+  return `/api/mpesa-payments/${paymentId}`
+}
+
+/**
+ * @summary Get an M-Pesa payment request status
+ */
+export const getMpesaPaymentStatus = async (paymentId: string, options?: Parameters<typeof customFetch>[1]): Promise<MpesaPaymentAttempt> => {
+
+  return customFetch<MpesaPaymentAttempt>(getGetMpesaPaymentStatusUrl(paymentId),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMpesaPaymentStatusQueryKey = (paymentId: string,) => {
+    return [
+    `/api/mpesa-payments/${paymentId}`
+    ] as const;
+    }
+
+
+export const getGetMpesaPaymentStatusQueryOptions = <TData = Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError = ErrorType<ApiError>>(paymentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMpesaPaymentStatusQueryKey(paymentId);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMpesaPaymentStatus>>> = ({ signal }) => getMpesaPaymentStatus(paymentId, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: paymentId !== null && paymentId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMpesaPaymentStatusQueryResult = NonNullable<Awaited<ReturnType<typeof getMpesaPaymentStatus>>>
+export type GetMpesaPaymentStatusQueryError = ErrorType<ApiError>
+
+
+export function useGetMpesaPaymentStatus<TData = Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError = ErrorType<ApiError>>(
+ paymentId: string, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMpesaPaymentStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getMpesaPaymentStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMpesaPaymentStatus<TData = Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError = ErrorType<ApiError>>(
+ paymentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMpesaPaymentStatus>>,
+          TError,
+          Awaited<ReturnType<typeof getMpesaPaymentStatus>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMpesaPaymentStatus<TData = Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError = ErrorType<ApiError>>(
+ paymentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get an M-Pesa payment request status
+ */
+
+export function useGetMpesaPaymentStatus<TData = Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError = ErrorType<ApiError>>(
+ paymentId: string, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMpesaPaymentStatus>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMpesaPaymentStatusQueryOptions(paymentId,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetMpesaConfigUrl = () => {
+
+
+
+
+  return `/api/mpesa/config`
+}
+
+/**
+ * @summary Get M-Pesa payment availability
+ */
+export const getMpesaConfig = async ( options?: Parameters<typeof customFetch>[1]): Promise<MpesaConfig> => {
+
+  return customFetch<MpesaConfig>(getGetMpesaConfigUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetMpesaConfigQueryKey = () => {
+    return [
+    `/api/mpesa/config`
+    ] as const;
+    }
+
+
+export const getGetMpesaConfigQueryOptions = <TData = Awaited<ReturnType<typeof getMpesaConfig>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMpesaConfig>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetMpesaConfigQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getMpesaConfig>>> = ({ signal }) => getMpesaConfig({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getMpesaConfig>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetMpesaConfigQueryResult = NonNullable<Awaited<ReturnType<typeof getMpesaConfig>>>
+export type GetMpesaConfigQueryError = ErrorType<unknown>
+
+
+export function useGetMpesaConfig<TData = Awaited<ReturnType<typeof getMpesaConfig>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMpesaConfig>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMpesaConfig>>,
+          TError,
+          Awaited<ReturnType<typeof getMpesaConfig>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMpesaConfig<TData = Awaited<ReturnType<typeof getMpesaConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMpesaConfig>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getMpesaConfig>>,
+          TError,
+          Awaited<ReturnType<typeof getMpesaConfig>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetMpesaConfig<TData = Awaited<ReturnType<typeof getMpesaConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMpesaConfig>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get M-Pesa payment availability
+ */
+
+export function useGetMpesaConfig<TData = Awaited<ReturnType<typeof getMpesaConfig>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getMpesaConfig>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetMpesaConfigQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getReceiveMpesaCallbackUrl = () => {
+
+
+
+
+  return `/api/mpesa/callback`
+}
+
+/**
+ * Provider callback; a successful callback is verified with the M-Pesa Express Query API before fees are updated.
+ * @summary Receive a Safaricom STK Push callback
+ */
+export const receiveMpesaCallback = async (mpesaCallbackInput: MpesaCallbackInput, options?: Parameters<typeof customFetch>[1]): Promise<ReceiveMpesaCallback200> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ReceiveMpesaCallback200>(getReceiveMpesaCallbackUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(mpesaCallbackInput)
+  }
+);}
+
+
+
+
+
+export const getReceiveMpesaCallbackMutationKey = () => ['receiveMpesaCallback'] as const;
+
+export const getReceiveMpesaCallbackMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveMpesaCallback>>, TError,ReceiveMpesaCallbackMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof receiveMpesaCallback>>, TError,ReceiveMpesaCallbackMutationVariables, TContext> => {
+
+const mutationKey = getReceiveMpesaCallbackMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof receiveMpesaCallback>>, ReceiveMpesaCallbackMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  receiveMpesaCallback(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReceiveMpesaCallbackMutationResult = NonNullable<Awaited<ReturnType<typeof receiveMpesaCallback>>>
+    export type ReceiveMpesaCallbackMutationBody = BodyType<MpesaCallbackInput>
+    export type ReceiveMpesaCallbackMutationError = ErrorType<unknown>
+    export type ReceiveMpesaCallbackMutationVariables = {data: BodyType<MpesaCallbackInput>}
+
+    /**
+ * @summary Receive a Safaricom STK Push callback
+ */
+export const useReceiveMpesaCallback = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof receiveMpesaCallback>>, TError,ReceiveMpesaCallbackMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof receiveMpesaCallback>>,
+        TError,
+        ReceiveMpesaCallbackMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReceiveMpesaCallbackMutationOptions(options), queryClient);
     }
 
 export const getListRecentPaymentsUrl = (params?: ListRecentPaymentsParams,) => {

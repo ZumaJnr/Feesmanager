@@ -1,15 +1,17 @@
-import { type FormEvent, type ReactNode, useMemo, useState } from 'react';
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { QueryClient, QueryClientProvider, useQueryClient } from '@tanstack/react-query';
 import {
   ArrowDownLeft, ArrowLeft, Check, ChevronRight, CircleAlert, CreditCard,
-  FileCheck2, Filter, GraduationCap, LayoutDashboard, LoaderCircle, Plus,
-  Search, ShieldCheck, Users, Wallet, X,
+  CircleCheck, FileCheck2, Filter, GraduationCap, LayoutDashboard,
+  LoaderCircle, Plus, Search, ShieldCheck, Smartphone, Users, Wallet, X,
 } from 'lucide-react';
 import {
   getGetFeeSummaryQueryKey, getListRecentPaymentsQueryKey,
-  getListStudentPaymentsQueryKey, getListStudentsQueryKey,
-  useCreateStudent, useGetFeeSummary, useHealthCheck, useListRecentPayments,
-  useListStudentPayments, useListStudents, useRecordStudentPayment,
+  getListStudentMpesaPaymentsQueryKey, getListStudentPaymentsQueryKey,
+  getListStudentsQueryKey, useCreateStudent, useGetFeeSummary,
+  useGetMpesaConfig, useHealthCheck, useListRecentPayments,
+  useListStudentMpesaPayments, useListStudentPayments, useListStudents,
+  useRecordStudentPayment, useStartMpesaPayment,
 } from '@workspace/api-client-react';
 import { Link, Route, Router as WouterRouter, Switch, useLocation, useParams } from 'wouter';
 import { ErrorBoundary } from '@/components/error-boundary';
@@ -88,7 +90,7 @@ function Activity({ payments, isLoading, isError, retry }: { payments: any[]; is
           <div className="activity-meta">{dateLabel(payment.date)} <span aria-hidden="true">·</span> <span className="receipt-code">{payment.receiptCode}</span></div>
         </div>
       </div>)}
-      <div className="activity-note">Payment records are bookkeeping entries only. No M-Pesa transaction is initiated.</div></div>}
+      <div className="activity-note">Manual entries are bookkeeping records. M-Pesa payments appear here only after Safaricom confirms success.</div></div>}
   </section>;
 }
 
@@ -164,7 +166,7 @@ function PaymentDialog({ studentId, studentName, balance, close, onSave, pending
     if (phone.replace(/\D/g, '').length < 9 || phone.replace(/\D/g, '').length > 15) { setFormError('Enter a valid phone number, 9 to 15 digits.'); return; }
     setFormError(''); onSave({ amount: numeric, phone: phone.trim() });
   };
-  return <Modal title="Record a payment" description={`Enter a payment received for ${studentName}.`} close={close}>
+  return <Modal title="Record a manual payment" description={`Enter money already received for ${studentName}.`} close={close}>
     <form onSubmit={submit}>
       <div className="field"><label htmlFor="payment-amount">Amount received (KES)</label><input id="payment-amount" autoFocus type="number" min="1" step="1" value={amount} onChange={event => setAmount(event.target.value)} placeholder="e.g. 5000" data-testid="input-payment-amount" /><p className="field-help">Current balance: {money(balance)}. Partial payments are welcome.</p></div>
       <div className="field"><label htmlFor="payment-phone">Payer phone number</label><input id="payment-phone" type="tel" inputMode="tel" value={phone} onChange={event => setPhone(event.target.value)} placeholder="e.g. 0712 345 678" data-testid="input-payment-phone" /></div>
@@ -175,15 +177,84 @@ function PaymentDialog({ studentId, studentName, balance, close, onSave, pending
   </Modal>;
 }
 
+type MpesaAttemptView = {
+  id: string;
+  status: 'pending' | 'verifying' | 'paid' | 'failed';
+  amount: number;
+  phone: string;
+  message: string | null;
+  receiptCode: string | null;
+};
+
+function MpesaPaymentDialog({ studentName, balance, close, onStart, onRetry, pending, error, attempt }: {
+  studentName: string;
+  balance: number;
+  close: () => void;
+  onStart: (data: { amount: number; phone: string }) => void;
+  onRetry: () => void;
+  pending: boolean;
+  error: string;
+  attempt?: MpesaAttemptView;
+}) {
+  const [amount, setAmount] = useState(String(Math.min(balance, 500) || ''));
+  const [phone, setPhone] = useState('');
+  const [formError, setFormError] = useState('');
+  const submit = (event: FormEvent) => {
+    event.preventDefault();
+    const numeric = Number(amount);
+    const digits = phone.replace(/\D/g, '');
+    if (!amount || !Number.isInteger(numeric) || numeric < 1) { setFormError('Enter an amount of at least KES 1.'); return; }
+    if (numeric > balance) { setFormError(`Amount cannot exceed the current balance of ${money(balance)}.`); return; }
+    if (digits.length < 9 || digits.length > 12) { setFormError('Enter a Kenyan mobile number, such as 0712 345 678.'); return; }
+    setFormError('');
+    onStart({ amount: numeric, phone: phone.trim() });
+  };
+
+  const waiting = attempt?.status === 'pending' || attempt?.status === 'verifying';
+  return <Modal title="Pay with M-Pesa" description={`Request a payment prompt for ${studentName}.`} close={close}>
+    <div className="receipt-callout mpesa-sandbox-note"><ShieldCheck size={16} /><span>Sandbox testing only. This does not collect real money.</span></div>
+    {attempt?.status === 'paid' ? <div className="mpesa-result success">
+      <CircleCheck size={22} /><div><strong>Payment confirmed</strong><span>{attempt.message || 'Safaricom confirmed this payment.'}</span>{attempt.receiptCode && <span className="receipt-chip">{attempt.receiptCode}</span>}</div>
+    </div> : attempt?.status === 'failed' ? <div className="mpesa-result failure">
+      <CircleAlert size={20} /><div><strong>Payment not completed</strong><span>{attempt.message || 'Safaricom did not confirm this payment.'}</span></div>
+    </div> : waiting ? <div className="mpesa-result waiting">
+      <LoaderCircle size={20} className="spin" /><div><strong>{attempt?.status === 'verifying' ? 'Verifying payment' : 'Prompt sent to your phone'}</strong><span>{attempt?.message || 'Check your phone and approve the Safaricom prompt.'}</span></div>
+    </div> : <form onSubmit={submit}>
+      <div className="field"><label htmlFor="mpesa-amount">Amount (KES)</label><input id="mpesa-amount" autoFocus type="number" min="1" max={balance} step="1" value={amount} onChange={event => setAmount(event.target.value)} placeholder="e.g. 5000" data-testid="input-mpesa-amount" /><p className="field-help">Available balance: {money(balance)}. Partial payments are allowed.</p></div>
+      <div className="field"><label htmlFor="mpesa-phone">Safaricom phone number</label><input id="mpesa-phone" type="tel" inputMode="tel" value={phone} onChange={event => setPhone(event.target.value)} placeholder="e.g. 0712 345 678" data-testid="input-mpesa-phone" /><p className="field-help">The payer must approve the prompt on this phone.</p></div>
+      {formError && <p className="field-error">{formError}</p>}{error && <div className="form-error">{error}</div>}
+      <div className="modal-actions"><button type="button" className="button secondary" onClick={close}>Cancel</button><button className="button" type="submit" disabled={pending || balance < 1} data-testid="button-send-mpesa">{pending ? <LoaderCircle size={15} /> : <Smartphone size={15} />}{pending ? 'Sending prompt...' : 'Send test prompt'}</button></div>
+    </form>}
+    {(attempt?.status === 'paid' || attempt?.status === 'failed' || waiting) && <div className="modal-actions"><button type="button" className="button secondary" onClick={close}>{waiting ? 'Close' : 'Done'}</button>{attempt?.status === 'failed' && <button type="button" className="button" onClick={onRetry}>Try again</button>}</div>}
+  </Modal>;
+}
+
 function StudentDetail() {
   const params = useParams<{ studentId: string }>();
   const studentId = Number(params.studentId);
   const queryClient = useQueryClient();
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [mpesaOpen, setMpesaOpen] = useState(false);
+  const [activeMpesaId, setActiveMpesaId] = useState<string | null>(null);
   const studentQuery = useListStudents();
   const paymentsQuery = useListStudentPayments(studentId);
+  const mpesaConfigQuery = useGetMpesaConfig();
+  const mpesaAttemptsQuery = useListStudentMpesaPayments(studentId, { query: { refetchInterval: 5000 } });
   const recordPayment = useRecordStudentPayment();
+  const startMpesaPayment = useStartMpesaPayment();
   const student = studentQuery.data?.find(item => item.id === studentId);
+  const activeMpesaAttempt = mpesaAttemptsQuery.data?.find(item => item.id === activeMpesaId) ??
+    (startMpesaPayment.data?.id === activeMpesaId ? startMpesaPayment.data : undefined);
+  useEffect(() => {
+    if (activeMpesaAttempt?.status !== 'paid') return;
+    void Promise.all([
+      queryClient.invalidateQueries({ queryKey: getListStudentPaymentsQueryKey(studentId) }),
+      queryClient.invalidateQueries({ queryKey: getListStudentsQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getGetFeeSummaryQueryKey() }),
+      queryClient.invalidateQueries({ queryKey: getListRecentPaymentsQueryKey({ limit: 8 }) }),
+      queryClient.invalidateQueries({ queryKey: getListRecentPaymentsQueryKey() }),
+    ]);
+  }, [activeMpesaAttempt?.id, activeMpesaAttempt?.status, queryClient, studentId]);
   const updatePayment = (data: { amount: number; phone: string }) => {
     recordPayment.mutate({ studentId, data }, {
       onSuccess: async () => {
@@ -204,20 +275,34 @@ function StudentDetail() {
   const paid = Math.max(student.totalFee - student.balance, 0);
   return <div className="page">
     <Link href="/" className="detail-back" data-testid="link-back-overview"><ArrowLeft size={15} /> All students</Link>
-    <div className="page-heading"><div><p className="eyebrow">Student account</p><h1>{student.name}</h1><p className="subhead">{student.className} <span aria-hidden="true">·</span> ADM {student.adm}</p></div><button className="button" onClick={() => setPaymentOpen(true)} data-testid="button-record-payment"><Plus size={16} /> Record payment</button></div>
+    <div className="page-heading"><div><p className="eyebrow">Student account</p><h1>{student.name}</h1><p className="subhead">{student.className} <span aria-hidden="true">·</span> ADM {student.adm}</p></div><div className="detail-actions">
+      <button className="button secondary" onClick={() => { setActiveMpesaId(null); startMpesaPayment.reset(); setMpesaOpen(true); }} disabled={!mpesaConfigQuery.data?.available} title={mpesaConfigQuery.data?.message} data-testid="button-pay-mpesa"><Smartphone size={15} /> Pay with M-Pesa <span className="sandbox-chip">TEST</span></button>
+      <button className="button" onClick={() => setPaymentOpen(true)} data-testid="button-record-payment"><Plus size={16} /> Record manually</button>
+    </div></div>
+    {!mpesaConfigQuery.data?.available && <p className="mpesa-config-note">{mpesaConfigQuery.data?.message || 'Checking M-Pesa setup…'}</p>}
     <div className="detail-hero"><div className="detail-person"><div className="initials">{initials(student.name)}</div><div><h2 className="detail-name">{student.name}</h2><div className="detail-adm">ADMISSION {student.adm} <span aria-hidden="true">·</span> {student.className}</div></div></div><div className="detail-balance"><div className="stat-label">Outstanding balance</div><div className="stat-value">{money(student.balance)}</div></div></div>
     <div className="detail-grid">
       <section className="panel"><div className="panel-head"><div><h2 className="panel-title">Payment history</h2><p className="panel-caption">Bookkeeping entries for this account</p></div><span className="panel-count">{paymentsQuery.data?.length ?? 0} entries</span></div>
         {paymentsQuery.isLoading ? <LoadingPanel /> : paymentsQuery.isError ? <ErrorNotice retry={() => void paymentsQuery.refetch()} /> : !paymentsQuery.data?.length ?
           <div className="empty-state"><div className="empty-icon"><CreditCard size={18} /></div><strong>No payments recorded</strong><div style={{ marginTop: 5 }}>Entries added to this account will appear here.</div><button className="button small" style={{ marginTop: 14 }} onClick={() => setPaymentOpen(true)} data-testid="button-first-payment"><Plus size={14} /> Record first payment</button></div> :
-          paymentsQuery.data.map(payment => <div className="payment-row" key={payment.id} data-testid={`payment-history-${payment.id}`}><div><strong>{dateLabel(payment.date)}</strong><span>{payment.phone}</span><span className="receipt-chip">{payment.receiptCode}</span></div><div className="payment-right"><strong>+{money(payment.amount)}</strong><span>Recorded</span></div></div>)}
+          paymentsQuery.data.map(payment => <div className="payment-row" key={payment.id} data-testid={`payment-history-${payment.id}`}><div><strong>{dateLabel(payment.date)}</strong><span>{payment.phone}</span><span className="receipt-chip">{payment.receiptCode}</span></div><div className="payment-right"><strong>+{money(payment.amount)}</strong><span>{payment.receiptCode.startsWith('SF-') ? 'Manual entry' : 'M-Pesa confirmed'}</span></div></div>)}
       </section>
       <div>
         <div className="detail-stats"><div className="mini-stat"><div className="mini-stat-label">Term fee</div><div className="mini-stat-value">{money(student.totalFee)}</div></div><div className="mini-stat"><div className="mini-stat-label">Collected</div><div className="mini-stat-value">{money(paid)}</div></div></div>
-        <section className="panel"><div className="panel-head"><div><h2 className="panel-title">Account note</h2><p className="panel-caption">A dependable record, entry by entry.</p></div></div><div style={{ padding: '0 20px 19px', color: '#76837a', fontSize: 11, lineHeight: 1.65 }}>Each payment is saved as a school bookkeeping entry with its own receipt reference. No mobile money transaction is started from this screen.</div></section>
+        <section className="panel"><div className="panel-head"><div><h2 className="panel-title">Account note</h2><p className="panel-caption">A dependable record, entry by entry.</p></div></div><div style={{ padding: '0 20px 19px', color: '#76837a', fontSize: 11, lineHeight: 1.65 }}>Manual entries are internal bookkeeping records. M-Pesa payments update this balance only after Safaricom confirms the transaction.</div></section>
       </div>
     </div>
+    <section className="panel mpesa-attempts-panel">
+      <div className="panel-head"><div><h2 className="panel-title">M-Pesa requests</h2><p className="panel-caption">Prompt status and confirmed M-Pesa receipts</p></div><span className="panel-count">{mpesaAttemptsQuery.data?.length ?? 0} requests</span></div>
+      {mpesaAttemptsQuery.isLoading ? <LoadingPanel rows={3} /> : mpesaAttemptsQuery.isError ? <ErrorNotice retry={() => void mpesaAttemptsQuery.refetch()} /> : !mpesaAttemptsQuery.data?.length ?
+        <div className="empty-state"><div className="empty-icon"><Smartphone size={18} /></div><strong>No M-Pesa requests yet</strong><div style={{ marginTop: 5 }}>Requests will appear here after a prompt is sent.</div></div> :
+        <div className="mpesa-attempt-list">{mpesaAttemptsQuery.data.map(attempt => <div className="mpesa-attempt-row" key={attempt.id} data-testid={`mpesa-attempt-${attempt.id}`}>
+          <div><strong>{money(attempt.amount)}</strong><span>{dateLabel(attempt.createdAt)} · {attempt.phone}</span>{attempt.receiptCode && <span className="receipt-chip">{attempt.receiptCode}</span>}</div>
+          <div className="mpesa-attempt-right"><span className={`mpesa-status ${attempt.status}`}>{attempt.status === 'paid' ? 'Confirmed' : attempt.status === 'failed' ? 'Not completed' : attempt.status === 'verifying' ? 'Verifying' : 'Prompt sent'}</span><span>{attempt.message}</span><button type="button" className="text-button" onClick={() => { setActiveMpesaId(attempt.id); setMpesaOpen(true); }}>View status</button></div>
+        </div>)}</div>}
+    </section>
     {paymentOpen && <PaymentDialog studentId={student.id} studentName={student.name} balance={student.balance} close={() => setPaymentOpen(false)} onSave={updatePayment} pending={recordPayment.isPending} error={recordPayment.isError ? (recordPayment.error as any)?.message ?? 'Payment could not be recorded. Please try again.' : ''} />}
+    {mpesaOpen && <MpesaPaymentDialog studentName={student.name} balance={student.balance} close={() => { setMpesaOpen(false); setActiveMpesaId(null); startMpesaPayment.reset(); }} attempt={activeMpesaAttempt} pending={startMpesaPayment.isPending} error={(startMpesaPayment.error as any)?.data?.error ?? (startMpesaPayment.error as any)?.message ?? ''} onRetry={() => { setActiveMpesaId(null); startMpesaPayment.reset(); }} onStart={(data) => { startMpesaPayment.mutate({ studentId, data }, { onSuccess: async (attempt) => { setActiveMpesaId(attempt.id); queryClient.setQueryData(getListStudentMpesaPaymentsQueryKey(studentId), (previous: typeof mpesaAttemptsQuery.data = []) => [attempt, ...previous.filter(item => item.id !== attempt.id)].slice(0, 20)); await queryClient.invalidateQueries({ queryKey: getListStudentMpesaPaymentsQueryKey(studentId) }); } }); }} />}
   </div>;
 }
 

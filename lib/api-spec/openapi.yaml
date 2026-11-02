@@ -166,6 +166,141 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /students/{studentId}/mpesa-payments:
+    get:
+      operationId: listStudentMpesaPayments
+      tags: [schoolFees]
+      summary: List M-Pesa payment requests for a student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Recent M-Pesa payment requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MpesaPaymentAttempt"
+        "404":
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: startMpesaPayment
+      tags: [schoolFees]
+      summary: Start an M-Pesa STK Push payment request
+      description: Starts a sandbox payment prompt. It does not update the fee balance until Safaricom confirms success.
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MpesaPaymentInput"
+      responses:
+        "201":
+          description: Payment prompt started
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MpesaPaymentAttempt"
+        "400":
+          description: Invalid phone number or amount
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: M-Pesa is not configured
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: Safaricom did not accept the payment prompt
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /mpesa-payments/{paymentId}:
+    get:
+      operationId: getMpesaPaymentStatus
+      tags: [schoolFees]
+      summary: Get an M-Pesa payment request status
+      parameters:
+        - name: paymentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Payment request status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MpesaPaymentAttempt"
+        "404":
+          description: Payment request not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /mpesa/config:
+    get:
+      operationId: getMpesaConfig
+      tags: [schoolFees]
+      summary: Get M-Pesa payment availability
+      responses:
+        "200":
+          description: Payment integration mode and availability
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MpesaConfig"
+  /mpesa/callback:
+    post:
+      operationId: receiveMpesaCallback
+      tags: [schoolFees]
+      summary: Receive a Safaricom STK Push callback
+      description: Provider callback; a successful callback is verified with the M-Pesa Express Query API before fees are updated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/MpesaCallbackInput"
+      responses:
+        "200":
+          description: Callback acknowledged
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ResultCode:
+                    type: integer
+                  ResultDesc:
+                    type: string
+                required: [ResultCode, ResultDesc]
   /payments:
     get:
       operationId: listRecentPayments
@@ -269,6 +404,84 @@ components:
           type: string
           minLength: 9
           maxLength: 15
+    MpesaPaymentInput:
+      type: object
+      required: [amount, phone]
+      properties:
+        amount:
+          type: integer
+          minimum: 1
+        phone:
+          type: string
+          minLength: 9
+          maxLength: 15
+    MpesaPaymentAttempt:
+      type: object
+      required: [id, studentId, amount, phone, status, receiptCode, message, createdAt]
+      properties:
+        id:
+          type: string
+        studentId:
+          type: integer
+        amount:
+          type: integer
+        phone:
+          type: string
+        status:
+          type: string
+          enum: [pending, verifying, paid, failed]
+        receiptCode:
+          type: ["string", "null"]
+        message:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+    MpesaConfig:
+      type: object
+      required: [available, environment, livePaymentsEnabled, message]
+      properties:
+        available:
+          type: boolean
+        environment:
+          type: string
+          enum: [sandbox, production]
+        livePaymentsEnabled:
+          type: boolean
+        message:
+          type: string
+    MpesaCallbackInput:
+      type: object
+      required: [Body]
+      properties:
+        Body:
+          type: object
+          required: [stkCallback]
+          properties:
+            stkCallback:
+              type: object
+              required: [CheckoutRequestID, ResultCode, ResultDesc]
+              properties:
+                MerchantRequestID:
+                  type: string
+                CheckoutRequestID:
+                  type: string
+                ResultCode:
+                  type: integer
+                ResultDesc:
+                  type: string
+                CallbackMetadata:
+                  type: ["object", "null"]
+                  properties:
+                    Item:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          Name:
+                            type: string
+                          Value:
+                            type: ["string", "number", "integer", "null"]
     FeeSummary:
       type: object
       required: [studentCount, totalFees, totalCollected, outstandingBalance, studentsWithBalance, recentPayments]

@@ -136,6 +136,114 @@ export const RecordStudentPaymentResponse = zod.object({
 
 
 /**
+ * @summary List M-Pesa payment requests for a student
+ */
+export const ListStudentMpesaPaymentsParams = zod.object({
+  "studentId": zod.coerce.number().int()
+})
+
+export const ListStudentMpesaPaymentsResponseItem = zod.object({
+  "id": zod.string(),
+  "studentId": zod.number().int(),
+  "amount": zod.number().int(),
+  "phone": zod.string(),
+  "status": zod.enum(['pending', 'verifying', 'paid', 'failed']),
+  "receiptCode": zod.string().nullable(),
+  "message": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+})
+export const ListStudentMpesaPaymentsResponse = zod.array(ListStudentMpesaPaymentsResponseItem)
+
+
+/**
+ * Starts a sandbox payment prompt. It does not update the fee balance until Safaricom confirms success.
+ * @summary Start an M-Pesa STK Push payment request
+ */
+export const StartMpesaPaymentParams = zod.object({
+  "studentId": zod.coerce.number().int()
+})
+
+
+export const startMpesaPaymentBodyPhoneMin = 9;
+export const startMpesaPaymentBodyPhoneMax = 15;
+
+
+
+export const StartMpesaPaymentBody = zod.object({
+  "amount": zod.number().int().min(1),
+  "phone": zod.string().min(startMpesaPaymentBodyPhoneMin).max(startMpesaPaymentBodyPhoneMax)
+})
+
+export const StartMpesaPaymentResponse = zod.object({
+  "id": zod.string(),
+  "studentId": zod.number().int(),
+  "amount": zod.number().int(),
+  "phone": zod.string(),
+  "status": zod.enum(['pending', 'verifying', 'paid', 'failed']),
+  "receiptCode": zod.string().nullable(),
+  "message": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get an M-Pesa payment request status
+ */
+export const GetMpesaPaymentStatusParams = zod.object({
+  "paymentId": zod.coerce.string()
+})
+
+export const GetMpesaPaymentStatusResponse = zod.object({
+  "id": zod.string(),
+  "studentId": zod.number().int(),
+  "amount": zod.number().int(),
+  "phone": zod.string(),
+  "status": zod.enum(['pending', 'verifying', 'paid', 'failed']),
+  "receiptCode": zod.string().nullable(),
+  "message": zod.string().nullable(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get M-Pesa payment availability
+ */
+export const GetMpesaConfigResponse = zod.object({
+  "available": zod.boolean(),
+  "environment": zod.enum(['sandbox', 'production']),
+  "livePaymentsEnabled": zod.boolean(),
+  "message": zod.string()
+})
+
+
+/**
+ * Provider callback; a successful callback is verified with the M-Pesa Express Query API before fees are updated.
+ * @summary Receive a Safaricom STK Push callback
+ */
+export const ReceiveMpesaCallbackBody = zod.object({
+  "Body": zod.object({
+  "stkCallback": zod.object({
+  "MerchantRequestID": zod.string().optional(),
+  "CheckoutRequestID": zod.string(),
+  "ResultCode": zod.number().int(),
+  "ResultDesc": zod.string(),
+  "CallbackMetadata": zod.object({
+  "Item": zod.array(zod.object({
+  "Name": zod.string().optional(),
+  "Value": zod.union([zod.string(),zod.number(),zod.number().int()]).nullish()
+})).optional()
+}).nullish()
+})
+})
+})
+
+export const ReceiveMpesaCallbackResponse = zod.object({
+  "ResultCode": zod.number().int(),
+  "ResultDesc": zod.string()
+})
+
+
+/**
  * @summary List recent payments
  */
 export const listRecentPaymentsQueryLimitDefault = 20;

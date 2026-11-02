@@ -19,3 +19,4 @@
 
 export * from "./students";
 export * from "./payments";
+export * from "./mpesa-payments";

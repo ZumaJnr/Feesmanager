@@ -220,6 +220,34 @@ tbody tr:hover { background: #f4f3eb; }
 .modal-actions { display: flex; justify-content: flex-end; gap: 9px; margin-top: 22px; }
 .receipt-callout { display: flex; gap: 10px; padding: 12px; margin: 16px 0; border-radius: 10px; color: #6e674f; background: #f2efdf; font-size: 10px; line-height: 1.5; }
 .receipt-callout svg { flex: 0 0 auto; color: #8f793d; }
+.detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sandbox-chip { padding: 3px 5px; border-radius: 5px; color: #6e674f; background: #f2efdf; font: 700 8px var(--app-font-mono); letter-spacing: .05em; }
+.mpesa-config-note { margin: -11px 0 20px auto; color: #96724a; text-align: right; font-size: 10px; }
+.mpesa-sandbox-note { margin: 0 0 18px; }
+.mpesa-result { display: flex; align-items: flex-start; gap: 11px; padding: 15px; margin: 18px 0 8px; border-radius: 12px; font-size: 11px; line-height: 1.5; }
+.mpesa-result > svg { flex: 0 0 auto; margin-top: 1px; }
+.mpesa-result strong, .mpesa-result span { display: block; }
+.mpesa-result strong { margin-bottom: 3px; color: #344d42; }
+.mpesa-result span { color: #7e8980; }
+.mpesa-result .receipt-chip { display: inline-flex; margin-top: 8px; }
+.mpesa-result.success { color: #38745b; background: #eaf3eb; }
+.mpesa-result.failure { color: #a14e40; background: #f8e9e4; }
+.mpesa-result.waiting { color: #92763c; background: #f5f0df; }
+.mpesa-attempts-panel { margin-top: 18px; }
+.mpesa-attempt-list { padding: 0 20px 10px; }
+.mpesa-attempt-row { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding: 14px 2px; border-top: 1px solid #efebe2; }
+.mpesa-attempt-row strong, .mpesa-attempt-row span { display: block; }
+.mpesa-attempt-row > div:first-child > strong { color: #395348; font: 600 12px var(--app-font-mono); }
+.mpesa-attempt-row > div:first-child > span:not(.receipt-chip) { margin-top: 5px; color: #8e9890; font-size: 10px; }
+.mpesa-attempt-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; text-align: right; }
+.mpesa-attempt-right > span:nth-child(2) { color: #929b92; font-size: 9px; }
+.mpesa-status { padding: 4px 7px; border-radius: 6px; font-size: 9px; font-weight: 700; }
+.mpesa-status.pending, .mpesa-status.verifying { color: #8c713a; background: #f4efdf; }
+.mpesa-status.paid { color: #3c775e; background: #eaf3eb; }
+.mpesa-status.failed { color: #a14e40; background: #f8e9e4; }
+.text-button { padding: 2px 0; border: 0; color: #477963; background: transparent; font-size: 9px; font-weight: 700; cursor: pointer; }
+.spin { animation: spin .9s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .mobile-brand { display: none; }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes modal-in { from { transform: translateY(10px); opacity: .7; } to { transform: translateY(0); opacity: 1; } }
@@ -249,8 +277,13 @@ tbody tr:hover { background: #f4f3eb; }
   .top-right { gap: 0; }
   .user-avatar { width: 29px; height: 29px; }
   .page { padding: 26px 16px 40px; }
-  .page-heading { align-items: flex-start; margin-bottom: 20px; }
+  .page-heading { align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px; }
   .page-heading .button { flex: 0 0 auto; min-height: 39px; padding: 0 11px; font-size: 10px; }
+  .detail-actions { justify-content: flex-start; width: 100%; max-width: 100%; }
+  .detail-actions .button { flex: 1; flex-wrap: wrap; justify-content: center; font-size: 9px; }
+  .mpesa-config-note { margin-right: 0; }
+  .mpesa-attempt-list { padding: 0 15px 8px; }
+  .mpesa-attempt-row { align-items: flex-start; }
   .page-heading h1 { font-size: 28px; }
   .summary-grid { gap: 9px; margin-bottom: 15px; }
   .stat-card { min-height: 111px; padding: 14px; border-radius: 13px; }
@@ -273,4 +306,6 @@ tbody tr:hover { background: #f4f3eb; }
   .stat-label { font-size: 9px; }
   .filter-select { width: 85px; }
   .page-heading .button { gap: 5px; padding: 0 9px; }
+  .detail-actions { max-width: 100%; gap: 5px; }
+  .detail-actions .button { padding: 0 7px; font-size: 8px; }
 }

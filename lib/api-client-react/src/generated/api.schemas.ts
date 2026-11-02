@@ -50,6 +50,84 @@ export interface PaymentInput {
   phone: string;
 }
 
+export interface MpesaPaymentInput {
+  /** @minimum 1 */
+  amount: number;
+  /**
+     * @minLength 9
+     * @maxLength 15
+     */
+  phone: string;
+}
+
+export type MpesaPaymentAttemptStatus = typeof MpesaPaymentAttemptStatus[keyof typeof MpesaPaymentAttemptStatus];
+
+
+export const MpesaPaymentAttemptStatus = {
+  pending: 'pending',
+  verifying: 'verifying',
+  paid: 'paid',
+  failed: 'failed',
+} as const;
+
+export interface MpesaPaymentAttempt {
+  id: string;
+  studentId: number;
+  amount: number;
+  phone: string;
+  status: MpesaPaymentAttemptStatus;
+  /** @nullable */
+  receiptCode: string | null;
+  /** @nullable */
+  message: string | null;
+  createdAt: string;
+}
+
+export type MpesaConfigEnvironment = typeof MpesaConfigEnvironment[keyof typeof MpesaConfigEnvironment];
+
+
+export const MpesaConfigEnvironment = {
+  sandbox: 'sandbox',
+  production: 'production',
+} as const;
+
+export interface MpesaConfig {
+  available: boolean;
+  environment: MpesaConfigEnvironment;
+  livePaymentsEnabled: boolean;
+  message: string;
+}
+
+export type MpesaCallbackInputBodyStkCallbackCallbackMetadataItemItem = {
+  Name?: string;
+  /** @nullable */
+  Value?: string | number | null;
+};
+
+/**
+ * @nullable
+ */
+export type MpesaCallbackInputBodyStkCallbackCallbackMetadata = {
+  Item?: MpesaCallbackInputBodyStkCallbackCallbackMetadataItemItem[];
+} | null;
+
+export type MpesaCallbackInputBodyStkCallback = {
+  MerchantRequestID?: string;
+  CheckoutRequestID: string;
+  ResultCode: number;
+  ResultDesc: string;
+  /** @nullable */
+  CallbackMetadata?: MpesaCallbackInputBodyStkCallbackCallbackMetadata;
+};
+
+export type MpesaCallbackInputBody = {
+  stkCallback: MpesaCallbackInputBodyStkCallback;
+};
+
+export interface MpesaCallbackInput {
+  Body: MpesaCallbackInputBody;
+}
+
 export interface FeeSummary {
   studentCount: number;
   totalFees: number;
@@ -66,6 +144,11 @@ export interface ApiError {
 export type ListStudentsParams = {
 q?: string;
 className?: string;
+};
+
+export type ReceiveMpesaCallback200 = {
+  ResultCode: number;
+  ResultDesc: string;
 };
 
 export type ListRecentPaymentsParams = {
