@@ -1,0 +1,1 @@
+- [Manual payment scope](manual-payment-scope.md) — ShuleFees receipts are internal bookkeeping references, not M-Pesa transaction confirmations.

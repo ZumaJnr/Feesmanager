@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "ShuleFees Phone"
+description = "A mobile-friendly school fee tracker for managing student records, balances, and payment receipts. Payments are recorded for bookkeeping and do not initiate real M-Pesa transactions."
+version = "1.0.0"
+id = "artifacts/shulefees-phone"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 25071
+
+[services.development]
+run = "pnpm --filter @workspace/shulefees-phone run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/shulefees-phone", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/shulefees-phone/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "25071"
+BASE_PATH = "/"

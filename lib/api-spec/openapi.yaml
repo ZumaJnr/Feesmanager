@@ -3,13 +3,15 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: School fee tracking API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: schoolFees
+    description: Student fee and payment operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,175 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /fees/summary:
+    get:
+      operationId: getFeeSummary
+      tags: [schoolFees]
+      summary: Get school fee totals and recent payments
+      responses:
+        "200":
+          description: Fee dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeeSummary"
+  /students:
+    get:
+      operationId: listStudents
+      tags: [schoolFees]
+      summary: List students
+      parameters:
+        - name: q
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: className
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Student list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Student"
+        "400":
+          description: Invalid list filters
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createStudent
+      tags: [schoolFees]
+      summary: Add a student
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudentInput"
+      responses:
+        "201":
+          description: Student added
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Student"
+        "400":
+          description: Invalid student details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "409":
+          description: Admission number is already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /students/{studentId}/payments:
+    get:
+      operationId: listStudentPayments
+      tags: [schoolFees]
+      summary: List payments for a student
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Student payment history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payment"
+        "400":
+          description: Invalid student identifier
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: recordStudentPayment
+      tags: [schoolFees]
+      summary: Record a fee payment
+      description: Records a payment for bookkeeping only; this does not initiate an M-Pesa transaction.
+      parameters:
+        - name: studentId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PaymentInput"
+      responses:
+        "201":
+          description: Payment recorded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Payment"
+        "400":
+          description: Invalid payment or amount exceeds the balance
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Student not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /payments:
+    get:
+      operationId: listRecentPayments
+      tags: [schoolFees]
+      summary: List recent payments
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Recent payment list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payment"
+        "400":
+          description: Invalid result limit
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +204,93 @@ components:
           type: string
       required:
         - status
+    Student:
+      type: object
+      required: [id, name, adm, className, totalFee, balance, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        adm:
+          type: string
+        className:
+          type: string
+        totalFee:
+          type: integer
+        balance:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+    StudentInput:
+      type: object
+      required: [name, adm, className, totalFee]
+      properties:
+        name:
+          type: string
+          minLength: 1
+        adm:
+          type: string
+          minLength: 1
+        className:
+          type: string
+          minLength: 1
+        totalFee:
+          type: integer
+          minimum: 0
+    Payment:
+      type: object
+      required: [id, studentId, studentName, amount, phone, receiptCode, date]
+      properties:
+        id:
+          type: integer
+        studentId:
+          type: integer
+        studentName:
+          type: string
+        amount:
+          type: integer
+        phone:
+          type: string
+        receiptCode:
+          type: string
+        date:
+          type: string
+          format: date-time
+    PaymentInput:
+      type: object
+      required: [amount, phone]
+      properties:
+        amount:
+          type: integer
+          minimum: 1
+        phone:
+          type: string
+          minLength: 9
+          maxLength: 15
+    FeeSummary:
+      type: object
+      required: [studentCount, totalFees, totalCollected, outstandingBalance, studentsWithBalance, recentPayments]
+      properties:
+        studentCount:
+          type: integer
+        totalFees:
+          type: integer
+        totalCollected:
+          type: integer
+        outstandingBalance:
+          type: integer
+        studentsWithBalance:
+          type: integer
+        recentPayments:
+          type: array
+          items:
+            $ref: "#/components/schemas/Payment"
+    ApiError:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
 
