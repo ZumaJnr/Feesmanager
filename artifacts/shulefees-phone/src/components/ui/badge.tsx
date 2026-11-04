@@ -1,4 +1,5 @@
 import * as React from 'react';
+import { BadgeCheck } from "lucide-react";
 import { cn } from '@/lib/utils';
 import { cva, type VariantProps } from 'class-variance-authority';
 
@@ -40,3 +41,12 @@ function Badge({ className, variant, ...props }: BadgeProps) {
 }
 
 export { Badge, badgeVariants };
+
+export function VerifiedBadge({ label = "Verified" }: { label?: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-semibold text-green-700">
+      <BadgeCheck size={14} />
+      {label}
+    </span>
+  );
+  }
